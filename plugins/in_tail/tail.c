@@ -450,7 +450,7 @@ static int in_tail_pre_run(struct flb_input_instance *ins,
     struct flb_tail_config *ctx = in_context;
     (void) ins;
 
-    return tail_signal_manager(ctx);
+    //return tail_signal_manager(ctx);
 }
 
 static int in_tail_exit(void *data, struct flb_config *config)

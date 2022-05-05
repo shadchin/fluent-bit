@@ -52,7 +52,7 @@ static void in_dummy_thread_callback(int write_fd, void *data)
         mpack_write_cstr(writer, ctx->message);
         mpack_writer_flush_message(writer);
         fflush(it->write_file);
-        sleep(1);
+        //sleep(1);
     }
 }
 

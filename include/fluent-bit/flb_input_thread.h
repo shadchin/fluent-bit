@@ -24,10 +24,18 @@
 #include <fluent-bit/flb_input.h>
 #include <fluent-bit/flb_info.h>
 #include <fluent-bit/flb_pipe.h>
-#include <fluent-bit/flb_pthread.h>
+#include <fluent-bit/flb_thread_pool.h>
 #include <mpack/mpack.h>
 
 #define BUFFER_SIZE 65535
+
+/* Message from parent to child thread */
+#define FLB_INPUT_THREAD_PARENT_TO_THREAD  (uint32_t) 1
+
+/* Event types from parent to child thread */
+#define FLB_INPUT_THREAD_PAUSE             (uint32_t) 1
+#define FLB_INPUT_THREAD_RESUME            (uint32_t) 2
+#define FLB_INPUT_THREAD_EXIT              (uint32_t) 3
 
 typedef void (*flb_input_thread_cb) (int write_fd, void *data);
 
@@ -45,6 +53,47 @@ struct flb_input_thread {
     size_t bufpos;                /* current offset in the msgpack buffer */
 };
 
+
+/* ============== ED'S WORK =================== */
+
+struct flb_input_thread_instance {
+    struct mk_event event;               /* event context to associate events */
+    struct mk_event_loop *evl;           /* thread event loop context */
+    flb_pipefd_t ch_parent_events[2];    /* communication between parent and thread */
+    flb_pipefd_t ch_thread_events[2];    /* local messages in the thread event loop */
+    struct flb_input_instance *ins;      /* output plugin instance */
+    struct flb_tp *tp;
+    struct flb_tp_thread *th;
+    struct flb_config *config;
+
+    /*
+     * In multithread mode, we move some contexts to independent references per thread
+     * so we can avoid to have shared resources and mutexes.
+     *
+     * The following 'coro' fields maintains a state of co-routines inside the thread
+     * event loop.
+     *
+     * note: in single-thread mode, the same fields are in 'struct flb_inpu_instance'.
+     */
+    int input_coro_id;
+    struct mk_list input_coro_list;
+    struct mk_list input_coro_list_destroy;
+};
+
+int flb_input_thread_instance_init(struct flb_config *config,
+                                   struct flb_input_instance *ins);
+int flb_input_thread_pause_instance(struct flb_input_instance *ins);
+
+int flb_input_thread_collectors_signal_start(struct flb_input_instance *ins);
+int flb_input_thread_collectors_signal_wait(struct flb_input_instance *ins);
+int flb_input_thread_collectors_start(struct flb_input_instance *ins);
+
+int flb_input_thread_init_fail(struct flb_input_instance *ins);
+int flb_input_thread_is_ready(struct flb_input_instance *ins);
+int flb_input_thread_wait_until_is_ready(struct flb_input_instance *ins);
+
+/* ============= END ED'S WORK ==================== */
+
 int flb_input_thread_init(struct flb_input_thread *it,
                           flb_input_thread_cb callback,
                           void *data);
@@ -55,5 +104,6 @@ int flb_input_thread_collect(struct flb_input_instance *ins,
                              void *in_context);
 void flb_input_thread_exit(void *in_context, struct flb_input_instance *ins);
 bool flb_input_thread_exited(struct flb_input_thread *it);
+
 
 #endif

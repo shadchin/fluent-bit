@@ -267,8 +267,11 @@ struct flb_config *flb_config_init()
         config->coro_stack_size = (unsigned int)getpagesize();
     }
 
-    /* Initialize linked lists */
+    /* collectors */
+    pthread_mutex_init(&config->collectors_mutex, NULL);
     mk_list_init(&config->collectors);
+
+    /* Initialize linked lists */
     mk_list_init(&config->custom_plugins);
     mk_list_init(&config->custom_plugins);
     mk_list_init(&config->in_plugins);

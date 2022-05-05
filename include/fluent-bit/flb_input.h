@@ -266,6 +266,11 @@ struct flb_input_instance {
     struct flb_metrics *metrics;         /* metrics                    */
 #endif
 
+
+    /* is the plugin running in a separate thread ? */
+    int is_threaded;
+    struct flb_input_thread_instance *thi;
+
     /*
      * CMetrics
      * --------
@@ -289,6 +294,9 @@ struct flb_input_instance {
 };
 
 struct flb_input_collector {
+    struct mk_event event;
+    struct mk_event_loop *evl;           /* event loop */
+
     int id;                              /* collector id               */
     int type;                            /* collector type             */
     int running;                         /* is running ? (True/False)  */
@@ -305,7 +313,6 @@ struct flb_input_collector {
     int (*cb_collect) (struct flb_input_instance *,
                        struct flb_config *, void *);
 
-    struct mk_event event;
 
     /* General references */
     struct flb_input_instance *instance; /* plugin instance             */
@@ -426,6 +433,11 @@ struct flb_input_coro *flb_input_coro_collect(struct flb_input_collector *coll,
     return input_coro;
 }
 
+static FLB_INLINE int flb_input_is_threaded(struct flb_input_instance *ins)
+{
+    return ins->is_threaded;
+}
+
 /*
  * This function is used by the output plugins to return. It's mandatory
  * as it will take care to signal the event loop letting know the flush
@@ -544,6 +556,9 @@ void flb_input_pre_run_all(struct flb_config *config);
 void flb_input_exit_all(struct flb_config *config);
 
 void *flb_input_flush(struct flb_input_instance *ins, size_t *size);
+
+int flb_input_test_pause_resume(struct flb_input_instance *ins, int sleep_seconds);
+int flb_input_pause(struct flb_input_instance *ins);
 int flb_input_pause_all(struct flb_config *config);
 const char *flb_input_name(struct flb_input_instance *ins);
 int flb_input_name_exists(const char *name, struct flb_config *config);
@@ -553,5 +568,7 @@ void flb_input_net_default_listener(const char *listen, int port,
 
 int flb_input_event_type_is_metric(struct flb_input_instance *ins);
 int flb_input_event_type_is_log(struct flb_input_instance *ins);
+
+struct mk_event_loop *flb_input_event_loop_get(struct flb_input_instance *ins);
 
 #endif
